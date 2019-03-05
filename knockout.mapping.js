@@ -20,6 +20,7 @@
 	var visitedObjects;
 	var recognizedRootProperties = ["create", "update", "key", "arrayChanged"];
 	var emptyReturn = {};
+	var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d+)*)(?:Z|(\+|-)([\d|:]*))?$/;
 
 	var _defaultOptions = {
 		include: ["_destroy"],
@@ -83,7 +84,7 @@
 	exports.isMapped = function (viewModel) {
 		var unwrapped = ko.utils.unwrapObservable(viewModel);
 		return unwrapped && unwrapped[mappingProperty];
-	}
+	};
 
 	exports.fromJS = function (jsObject /*, inputOptions, target*/ ) {
 		if (arguments.length == 0) throw new Error("When calling ko.fromJS, pass the object you want to convert.");
@@ -200,9 +201,11 @@
 		if ((x) && (typeof (x) === "object")) {
 			if (x.constructor === Date) return "date";
 			if (x.constructor === Array) return "array";
+		} else if (typeof (x) === "string") {
+			if (reISO.exec(x)) return "date";
 		}
 		return typeof x;
-	}
+	};
 
 	function fillOptions(rawOptions, otherOptions) {
 		var options = merge({}, rawOptions);
@@ -300,7 +303,7 @@
 			}
 
 			return realDependentObservable;
-		}
+		};
 		ko.dependentObservable.fn = realKoDependentObservable.fn;
 		ko.computed = ko.dependentObservable;
 		var result = callback();
@@ -363,7 +366,7 @@
 			}
 
 			return options[parentName].update(params);
-		}
+		};
 
 		var alreadyMapped = visitedObjects.get(rootObject);
 		if (alreadyMapped) {
@@ -375,7 +378,8 @@
 		if (!isArray) {
 			// For atomic types, do a direct update on the observable
 			if (!canHaveProperties(rootObject)) {
-				switch (exports.getType(rootObject)) {
+				var theType = exports.getType(rootObject);
+				switch (theType) {
 				case "function":
 					if (hasUpdateCallback()) {
 						if (ko.isWriteableObservable(rootObject)) {
@@ -396,6 +400,7 @@
 							return valueToWrite;
 						} else {
 							var valueToWrite = ko.utils.unwrapObservable(rootObject);
+							if (theType === "date") valueToWrite = new Date(valueToWrite);
 							mappedRootObject(valueToWrite);
 							return valueToWrite;
 						}
@@ -409,7 +414,10 @@
 						}
 
 						if (hasUpdateCallback()) {
-							mappedRootObject(updateCallback(mappedRootObject));
+							if (theType === "date")
+								mappedRootObject = ko.observable(new Date(ko.utils.unwrapObservable(rootObject)));
+							else
+								mappedRootObject(updateCallback(mappedRootObject));
 						}
 						
 						if (hasCreateOrUpdateCallback) return mappedRootObject;
@@ -495,7 +503,7 @@
 			var hasKeyCallback = false;
 			var keyCallback = function (x) {
 				return x;
-			}
+			};
 			if (options[parentName] && options[parentName].key) {
 				keyCallback = options[parentName].key;
 				hasKeyCallback = true;
@@ -512,14 +520,14 @@
 					return mappedRootObject.remove(function (item) {
 						return predicate(keyCallback(item));
 					});
-				}
+				};
 
 				mappedRootObject.mappedRemoveAll = function (arrayOfValues) {
 					var arrayOfKeys = filterArrayByKey(arrayOfValues, keyCallback);
 					return mappedRootObject.remove(function (item) {
 						return ko.utils.arrayIndexOf(arrayOfKeys, keyCallback(item)) != -1;
 					});
-				}
+				};
 
 				mappedRootObject.mappedDestroy = function (valueOrPredicate) {
 					var predicate = typeof valueOrPredicate == "function" ? valueOrPredicate : function (value) {
@@ -528,24 +536,24 @@
 					return mappedRootObject.destroy(function (item) {
 						return predicate(keyCallback(item));
 					});
-				}
+				};
 
 				mappedRootObject.mappedDestroyAll = function (arrayOfValues) {
 					var arrayOfKeys = filterArrayByKey(arrayOfValues, keyCallback);
 					return mappedRootObject.destroy(function (item) {
 						return ko.utils.arrayIndexOf(arrayOfKeys, keyCallback(item)) != -1;
 					});
-				}
+				};
 
 				mappedRootObject.mappedIndexOf = function (item) {
 					var keys = filterArrayByKey(mappedRootObject(), keyCallback);
 					var key = keyCallback(item);
 					return ko.utils.arrayIndexOf(keys, key);
-				}
+				};
 
 				mappedRootObject.mappedGet = function (item) {
 					return mappedRootObject()[mappedRootObject.mappedIndexOf(item)];
-				}
+				};
 
 				mappedRootObject.mappedCreate = function (value) {
 					if (mappedRootObject.mappedIndexOf(value) !== -1) {
@@ -563,7 +571,7 @@
 					}
 					mappedRootObject.push(item);
 					return item;
-				}
+				};
 			}
 
 			var currentArrayKeys = filterArrayByKey(ko.utils.unwrapObservable(mappedRootObject), keyCallback).sort();
@@ -687,7 +695,7 @@
 			for (var propertyName in rootObject)
 			visitorCallback(propertyName);
 		}
-	};
+	}
 
 	function canHaveProperties(object) {
 		var type = exports.getType(object);
@@ -766,7 +774,7 @@
 		});
 
 		return mappedRootObject;
-	}
+	};
 
 	function simpleObjectLookup() {
 		var keys = [];
@@ -784,7 +792,7 @@
 			var value = (existingIndex >= 0) ? values[existingIndex] : undefined;
 			return value;
 		};
-	};
+	}
 	
 	function objectLookup() {
 		var buckets = {};
@@ -812,5 +820,5 @@
 		this.get = function (key) {
 			return findBucket(key).get(key);
 		};
-	};
+	}
 }));
