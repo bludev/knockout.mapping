@@ -1,3 +1,7 @@
+Release 2.4.2 - March 5th, 2019
+
+* Added the ability to map ISO dates to Date() object.
+
 Release 2.4.1 - February 8th, 2013
 
 * Added mappedGet for observable arrays
